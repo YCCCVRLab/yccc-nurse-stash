@@ -52,6 +52,12 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				stock: {
+					low: 'hsl(var(--stock-low))',
+					medium: 'hsl(var(--stock-medium))',
+					good: 'hsl(var(--stock-good))',
+					out: 'hsl(var(--stock-out))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
