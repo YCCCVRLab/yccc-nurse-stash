@@ -91,10 +91,10 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className=\"sm:max-w-md\">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className=\"flex items-center gap-2\">
-            <Shield className=\"h-5 w-5 text-blue-600\" />
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-600" />
             {mode === 'signin' && 'Secure Sign In'}
             {mode === 'signup' && 'Create Secure Account'}
             {mode === 'verify' && 'Email Verification'}
@@ -106,31 +106,31 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className=\"space-y-4\">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {mode !== 'verify' && (
-            <div className=\"space-y-2\">
-              <Label htmlFor=\"email\" className=\"flex items-center gap-2\">
-                <Mail className=\"h-4 w-4\" />
+            <div className="space-y-2">
+              <Label htmlFor="email" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
                 Email Address
               </Label>
               <Input
-                id=\"email\"
-                type=\"email\"
+                id="email"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder=\"your.email@mainecc.edu\"
+                placeholder="your.email@mainecc.edu"
                 required
                 className={!emailWhitelisted && email ? 'border-red-500' : ''}
               />
               {email && !emailWhitelisted && (
-                <p className=\"text-sm text-red-600 flex items-center gap-1\">
-                  <XCircle className=\"h-4 w-4\" />
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <XCircle className="h-4 w-4" />
                   Only @mainecc.edu emails are authorized
                 </p>
               )}
               {email && emailWhitelisted && (
-                <p className=\"text-sm text-green-600 flex items-center gap-1\">
-                  <CheckCircle className=\"h-4 w-4\" />
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
                   Authorized email domain
                 </p>
               )}
@@ -138,35 +138,35 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
           )}
 
           {mode !== 'verify' && (
-            <div className=\"space-y-2\">
-              <Label htmlFor=\"password\" className=\"flex items-center gap-2\">
-                <Lock className=\"h-4 w-4\" />
+            <div className="space-y-2">
+              <Label htmlFor="password" className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
                 Password
               </Label>
-              <div className=\"relative\">
+              <div className="relative">
                 <Input
-                  id=\"password\"
+                  id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder={mode === 'signup' ? 'Create a strong password (12+ characters)' : 'Enter your password'}
                   required
-                  className=\"pr-10\"
+                  className="pr-10"
                 />
                 <Button
-                  type=\"button\"
-                  variant=\"ghost\"
-                  size=\"sm\"
-                  className=\"absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent\"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className=\"h-4 w-4\" /> : <Eye className=\"h-4 w-4\" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
               
               {mode === 'signup' && password && (
-                <div className=\"space-y-2\">
-                  <div className=\"flex items-center justify-between text-sm\">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
                     <span>Password Strength:</span>
                     <span className={`font-medium ${
                       passwordStrength.isValid ? 'text-green-600' : 'text-red-600'
@@ -174,22 +174,22 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
                       {getPasswordStrengthText()}
                     </span>
                   </div>
-                  <div className=\"w-full bg-gray-200 rounded-full h-2\">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
                       style={{ width: `${Math.max(10, (4 - passwordStrength.errors.length) * 25)}%` }}
                     />
                   </div>
                   {passwordStrength.errors.length > 0 && (
-                    <div className=\"text-sm text-red-600 space-y-1\">
+                    <div className="text-sm text-red-600 space-y-1">
                       {passwordStrength.errors.slice(0, 2).map((error, index) => (
-                        <p key={index} className=\"flex items-center gap-1\">
-                          <XCircle className=\"h-3 w-3\" />
+                        <p key={index} className="flex items-center gap-1">
+                          <XCircle className="h-3 w-3" />
                           {error}
                         </p>
                       ))}
                       {passwordStrength.errors.length > 2 && (
-                        <p className=\"text-xs text-gray-600\">+{passwordStrength.errors.length - 2} more requirements</p>
+                        <p className="text-xs text-gray-600">+{passwordStrength.errors.length - 2} more requirements</p>
                       )}
                     </div>
                   )}
@@ -199,31 +199,31 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
           )}
 
           {mode === 'signup' && (
-            <div className=\"space-y-2\">
-              <Label htmlFor=\"confirmPassword\">Confirm Password</Label>
-              <div className=\"relative\">
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="relative">
                 <Input
-                  id=\"confirmPassword\"
+                  id="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder=\"Confirm your password\"
+                  placeholder="Confirm your password"
                   required
-                  className=\"pr-10\"
+                  className="pr-10"
                 />
                 <Button
-                  type=\"button\"
-                  variant=\"ghost\"
-                  size=\"sm\"
-                  className=\"absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent\"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? <EyeOff className=\"h-4 w-4\" /> : <Eye className=\"h-4 w-4\" />}
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
               {password && confirmPassword && password !== confirmPassword && (
-                <p className=\"text-sm text-red-600 flex items-center gap-1\">
-                  <XCircle className=\"h-4 w-4\" />
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <XCircle className="h-4 w-4" />
                   Passwords do not match
                 </p>
               )}
@@ -231,27 +231,27 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
           )}
 
           {mode === 'verify' && (
-            <div className=\"text-center space-y-4\">
-              <div className=\"mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center\">
-                <Mail className=\"h-8 w-8 text-blue-600\" />
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <Mail className="h-8 w-8 text-blue-600" />
               </div>
               <div>
-                <h3 className=\"font-semibold\">Check Your Email</h3>
-                <p className=\"text-sm text-gray-600 mt-1\">
+                <h3 className="font-semibold">Check Your Email</h3>
+                <p className="text-sm text-gray-600 mt-1">
                   We sent a verification link to <strong>{email}</strong>
                 </p>
-                <p className=\"text-xs text-gray-500 mt-2\">
+                <p className="text-xs text-gray-500 mt-2">
                   Click the link in your email to verify your account, then return here to sign in.
                 </p>
               </div>
             </div>
           )}
 
-          <div className=\"flex flex-col gap-2\">
+          <div className="flex flex-col gap-2">
             <Button 
-              type=\"submit\" 
+              type="submit" 
               disabled={isLoading || (email && !emailWhitelisted)}
-              className=\"w-full\"
+              className="w-full"
             >
               {isLoading ? 'Processing...' : 
                mode === 'signin' ? 'Sign In Securely' :
@@ -260,28 +260,28 @@ export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
             </Button>
             
             {mode === 'signin' && (
-              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signup')}>
+              <Button type="button" variant="outline" onClick={() => switchMode('signup')}>
                 Create New Account
               </Button>
             )}
             
             {mode === 'signup' && (
-              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signin')}>
+              <Button type="button" variant="outline" onClick={() => switchMode('signin')}>
                 Already have an account? Sign In
               </Button>
             )}
             
             {mode === 'verify' && (
-              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signin')}>
+              <Button type="button" variant="outline" onClick={() => switchMode('signin')}>
                 Back to Sign In
               </Button>
             )}
           </div>
         </form>
 
-        <div className=\"text-xs text-gray-500 text-center space-y-1\">
-          <p className=\"flex items-center justify-center gap-1\">
-            <Shield className=\"h-3 w-3\" />
+        <div className="text-xs text-gray-500 text-center space-y-1">
+          <p className="flex items-center justify-center gap-1">
+            <Shield className="h-3 w-3" />
             Secured with enterprise-grade encryption
           </p>
           <p>Only authorized @mainecc.edu emails can access this system</p>
