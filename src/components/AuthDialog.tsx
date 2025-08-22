@@ -1,1 +1,292 @@
-import { useState } from 'react';\nimport { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';\nimport { Button } from '@/components/ui/button';\nimport { Input } from '@/components/ui/input';\nimport { Label } from '@/components/ui/label';\nimport { Alert, AlertDescription } from '@/components/ui/alert';\nimport { useAuth } from '@/hooks/useAuth';\nimport { Eye, EyeOff, Shield, Mail, Lock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';\n\ninterface AuthDialogProps {\n  open: boolean;\n  onOpenChange: (open: boolean) => void;\n}\n\nexport const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {\n  const [mode, setMode] = useState<'signin' | 'signup' | 'verify'>('signin');\n  const [email, setEmail] = useState('');\n  const [password, setPassword] = useState('');\n  const [confirmPassword, setConfirmPassword] = useState('');\n  const [showPassword, setShowPassword] = useState(false);\n  const [showConfirmPassword, setShowConfirmPassword] = useState(false);\n  const [isLoading, setIsLoading] = useState(false);\n  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);\n  const [passwordStrength, setPasswordStrength] = useState<{ isValid: boolean; errors: string[] }>({ isValid: false, errors: [] });\n\n  const { signIn, signUp, resendVerification, isEmailWhitelisted, validatePasswordStrength } = useAuth();\n\n  // Real-time password validation\n  const handlePasswordChange = (value: string) => {\n    setPassword(value);\n    if (mode === 'signup') {\n      setPasswordStrength(validatePasswordStrength(value));\n    }\n  };\n\n  // Real-time email validation\n  const handleEmailChange = (value: string) => {\n    setEmail(value);\n    setMessage(null);\n    \n    if (value && !isEmailWhitelisted(value)) {\n      setMessage({\n        type: 'error',\n        text: 'Only @mainecc.edu email addresses are authorized to access this system.'\n      });\n    }\n  };\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    setIsLoading(true);\n    setMessage(null);\n\n    try {\n      if (mode === 'signin') {\n        const result = await signIn(email, password);\n        if (result.success) {\n          setMessage({ type: 'success', text: 'Successfully signed in!' });\n          setTimeout(() => onOpenChange(false), 1500);\n        } else {\n          setMessage({ type: 'error', text: result.error || 'Sign in failed' });\n        }\n      } else if (mode === 'signup') {\n        // Additional client-side validation\n        if (password !== confirmPassword) {\n          setMessage({ type: 'error', text: 'Passwords do not match' });\n          setIsLoading(false);\n          return;\n        }\n\n        if (!passwordStrength.isValid) {\n          setMessage({ type: 'error', text: passwordStrength.errors[0] });\n          setIsLoading(false);\n          return;\n        }\n\n        const result = await signUp(email, password);\n        if (result.success) {\n          setMode('verify');\n          setMessage({ \n            type: 'success', \n            text: 'Account created! Please check your email for a verification link.' \n          });\n        } else {\n          setMessage({ type: 'error', text: result.error || 'Sign up failed' });\n        }\n      } else if (mode === 'verify') {\n        const result = await resendVerification(email);\n        if (result.success) {\n          setMessage({ type: 'success', text: 'Verification email sent!' });\n        } else {\n          setMessage({ type: 'error', text: result.error || 'Failed to send verification email' });\n        }\n      }\n    } catch (error) {\n      setMessage({ type: 'error', text: 'An unexpected error occurred' });\n    } finally {\n      setIsLoading(false);\n    }\n  };\n\n  const resetForm = () => {\n    setEmail('');\n    setPassword('');\n    setConfirmPassword('');\n    setMessage(null);\n    setPasswordStrength({ isValid: false, errors: [] });\n  };\n\n  const switchMode = (newMode: 'signin' | 'signup' | 'verify') => {\n    setMode(newMode);\n    resetForm();\n  };\n\n  const getPasswordStrengthColor = () => {\n    if (!password) return 'bg-gray-200';\n    if (passwordStrength.errors.length > 3) return 'bg-red-500';\n    if (passwordStrength.errors.length > 1) return 'bg-yellow-500';\n    if (passwordStrength.errors.length === 1) return 'bg-blue-500';\n    return 'bg-green-500';\n  };\n\n  const getPasswordStrengthText = () => {\n    if (!password) return 'Enter password';\n    if (passwordStrength.errors.length > 3) return 'Weak';\n    if (passwordStrength.errors.length > 1) return 'Fair';\n    if (passwordStrength.errors.length === 1) return 'Good';\n    return 'Strong';\n  };\n\n  return (\n    <Dialog open={open} onOpenChange={onOpenChange}>\n      <DialogContent className=\"sm:max-w-md\">\n        <DialogHeader>\n          <DialogTitle className=\"flex items-center gap-2\">\n            <Shield className=\"h-5 w-5 text-blue-600\" />\n            {mode === 'signin' && 'Secure Sign In'}\n            {mode === 'signup' && 'Create Secure Account'}\n            {mode === 'verify' && 'Email Verification'}\n          </DialogTitle>\n          <DialogDescription>\n            {mode === 'signin' && 'Sign in to access the YCCC Nursing Inventory system'}\n            {mode === 'signup' && 'Create a new account with enhanced security'}\n            {mode === 'verify' && 'Verify your email address to complete registration'}\n          </DialogDescription>\n        </DialogHeader>\n\n        <form onSubmit={handleSubmit} className=\"space-y-4\">\n          {mode !== 'verify' && (\n            <div className=\"space-y-2\">\n              <Label htmlFor=\"email\" className=\"flex items-center gap-2\">\n                <Mail className=\"h-4 w-4\" />\n                Email Address\n              </Label>\n              <Input\n                id=\"email\"\n                type=\"email\"\n                value={email}\n                onChange={(e) => handleEmailChange(e.target.value)}\n                placeholder=\"your.email@mainecc.edu\"\n                required\n                className={!isEmailWhitelisted(email) && email ? 'border-red-500' : ''}\n              />\n              {email && !isEmailWhitelisted(email) && (\n                <p className=\"text-sm text-red-600 flex items-center gap-1\">\n                  <XCircle className=\"h-4 w-4\" />\n                  Only @mainecc.edu emails are authorized\n                </p>\n              )}\n              {email && isEmailWhitelisted(email) && (\n                <p className=\"text-sm text-green-600 flex items-center gap-1\">\n                  <CheckCircle className=\"h-4 w-4\" />\n                  Authorized email domain\n                </p>\n              )}\n            </div>\n          )}\n\n          {mode !== 'verify' && (\n            <div className=\"space-y-2\">\n              <Label htmlFor=\"password\" className=\"flex items-center gap-2\">\n                <Lock className=\"h-4 w-4\" />\n                Password\n              </Label>\n              <div className=\"relative\">\n                <Input\n                  id=\"password\"\n                  type={showPassword ? 'text' : 'password'}\n                  value={password}\n                  onChange={(e) => handlePasswordChange(e.target.value)}\n                  placeholder={mode === 'signup' ? 'Create a strong password (12+ characters)' : 'Enter your password'}\n                  required\n                  className=\"pr-10\"\n                />\n                <Button\n                  type=\"button\"\n                  variant=\"ghost\"\n                  size=\"sm\"\n                  className=\"absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent\"\n                  onClick={() => setShowPassword(!showPassword)}\n                >\n                  {showPassword ? <EyeOff className=\"h-4 w-4\" /> : <Eye className=\"h-4 w-4\" />}\n                </Button>\n              </div>\n              \n              {mode === 'signup' && password && (\n                <div className=\"space-y-2\">\n                  <div className=\"flex items-center justify-between text-sm\">\n                    <span>Password Strength:</span>\n                    <span className={`font-medium ${\n                      passwordStrength.isValid ? 'text-green-600' : 'text-red-600'\n                    }`}>\n                      {getPasswordStrengthText()}\n                    </span>\n                  </div>\n                  <div className=\"w-full bg-gray-200 rounded-full h-2\">\n                    <div \n                      className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}\n                      style={{ width: `${Math.max(10, (4 - passwordStrength.errors.length) * 25)}%` }}\n                    />\n                  </div>\n                  {passwordStrength.errors.length > 0 && (\n                    <div className=\"text-sm text-red-600 space-y-1\">\n                      {passwordStrength.errors.slice(0, 2).map((error, index) => (\n                        <p key={index} className=\"flex items-center gap-1\">\n                          <XCircle className=\"h-3 w-3\" />\n                          {error}\n                        </p>\n                      ))}\n                      {passwordStrength.errors.length > 2 && (\n                        <p className=\"text-xs text-gray-600\">+{passwordStrength.errors.length - 2} more requirements</p>\n                      )}\n                    </div>\n                  )}\n                </div>\n              )}\n            </div>\n          )}\n\n          {mode === 'signup' && (\n            <div className=\"space-y-2\">\n              <Label htmlFor=\"confirmPassword\">Confirm Password</Label>\n              <div className=\"relative\">\n                <Input\n                  id=\"confirmPassword\"\n                  type={showConfirmPassword ? 'text' : 'password'}\n                  value={confirmPassword}\n                  onChange={(e) => setConfirmPassword(e.target.value)}\n                  placeholder=\"Confirm your password\"\n                  required\n                  className=\"pr-10\"\n                />\n                <Button\n                  type=\"button\"\n                  variant=\"ghost\"\n                  size=\"sm\"\n                  className=\"absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent\"\n                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}\n                >\n                  {showConfirmPassword ? <EyeOff className=\"h-4 w-4\" /> : <Eye className=\"h-4 w-4\" />}\n                </Button>\n              </div>\n              {password && confirmPassword && password !== confirmPassword && (\n                <p className=\"text-sm text-red-600 flex items-center gap-1\">\n                  <XCircle className=\"h-4 w-4\" />\n                  Passwords do not match\n                </p>\n              )}\n            </div>\n          )}\n\n          {mode === 'verify' && (\n            <div className=\"text-center space-y-4\">\n              <div className=\"mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center\">\n                <Mail className=\"h-8 w-8 text-blue-600\" />\n              </div>\n              <div>\n                <h3 className=\"font-semibold\">Check Your Email</h3>\n                <p className=\"text-sm text-gray-600 mt-1\">\n                  We sent a verification link to <strong>{email}</strong>\n                </p>\n                <p className=\"text-xs text-gray-500 mt-2\">\n                  Click the link in your email to verify your account, then return here to sign in.\n                </p>\n              </div>\n            </div>\n          )}\n\n          {message && (\n            <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : \n                            message.type === 'success' ? 'border-green-200 bg-green-50' : \n                            'border-blue-200 bg-blue-50'}>\n              <AlertTriangle className={`h-4 w-4 ${\n                message.type === 'error' ? 'text-red-600' : \n                message.type === 'success' ? 'text-green-600' : \n                'text-blue-600'\n              }`} />\n              <AlertDescription className={message.type === 'error' ? 'text-red-700' : \n                                        message.type === 'success' ? 'text-green-700' : \n                                        'text-blue-700'}>\n                {message.text}\n              </AlertDescription>\n            </Alert>\n          )}\n\n          <div className=\"flex flex-col gap-2\">\n            <Button \n              type=\"submit\" \n              disabled={isLoading || (email && !isEmailWhitelisted(email))}\n              className=\"w-full\"\n            >\n              {isLoading ? 'Processing...' : \n               mode === 'signin' ? 'Sign In Securely' :\n               mode === 'signup' ? 'Create Secure Account' :\n               'Resend Verification Email'}\n            </Button>\n            \n            {mode === 'signin' && (\n              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signup')}>\n                Create New Account\n              </Button>\n            )}\n            \n            {mode === 'signup' && (\n              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signin')}>\n                Already have an account? Sign In\n              </Button>\n            )}\n            \n            {mode === 'verify' && (\n              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signin')}>\n                Back to Sign In\n              </Button>\n            )}\n          </div>\n        </form>\n\n        <div className=\"text-xs text-gray-500 text-center space-y-1\">\n          <p className=\"flex items-center justify-center gap-1\">\n            <Shield className=\"h-3 w-3\" />\n            Secured with enterprise-grade encryption\n          </p>\n          <p>Only authorized @mainecc.edu emails can access this system</p>\n        </div>\n      </DialogContent>\n    </Dialog>\n  );\n};"
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/hooks/useAuth';
+import { Eye, EyeOff, Shield, Mail, Lock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+
+interface AuthDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
+  const [mode, setMode] = useState<'signin' | 'signup' | 'verify'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<{ isValid: boolean; errors: string[] }>({ isValid: false, errors: [] });
+
+  const { signIn, signUp, resendVerification, isEmailWhitelisted, validatePasswordStrength } = useAuth();
+
+  // Real-time password validation
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (mode === 'signup' && validatePasswordStrength) {
+      setPasswordStrength(validatePasswordStrength(value));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (mode === 'signin') {
+        await signIn.mutateAsync({ email, password });
+        onOpenChange(false);
+      } else if (mode === 'signup') {
+        // Additional client-side validation
+        if (password !== confirmPassword) {
+          return;
+        }
+
+        if (validatePasswordStrength && !validatePasswordStrength(password).isValid) {
+          return;
+        }
+
+        await signUp.mutateAsync({ email, password });
+        setMode('verify');
+      } else if (mode === 'verify') {
+        await resendVerification.mutateAsync(email);
+      }
+    } catch (error) {
+      // Error handling is done by the useAuth hook via toast
+    }
+  };
+
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setPasswordStrength({ isValid: false, errors: [] });
+  };
+
+  const switchMode = (newMode: 'signin' | 'signup' | 'verify') => {
+    setMode(newMode);
+    resetForm();
+  };
+
+  const getPasswordStrengthColor = () => {
+    if (!password) return 'bg-gray-200';
+    if (passwordStrength.errors.length > 3) return 'bg-red-500';
+    if (passwordStrength.errors.length > 1) return 'bg-yellow-500';
+    if (passwordStrength.errors.length === 1) return 'bg-blue-500';
+    return 'bg-green-500';
+  };
+
+  const getPasswordStrengthText = () => {
+    if (!password) return 'Enter password';
+    if (passwordStrength.errors.length > 3) return 'Weak';
+    if (passwordStrength.errors.length > 1) return 'Fair';
+    if (passwordStrength.errors.length === 1) return 'Good';
+    return 'Strong';
+  };
+
+  const isLoading = signIn.isPending || signUp.isPending || resendVerification.isPending;
+  const emailWhitelisted = isEmailWhitelisted ? isEmailWhitelisted(email) : true;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className=\"sm:max-w-md\">
+        <DialogHeader>
+          <DialogTitle className=\"flex items-center gap-2\">
+            <Shield className=\"h-5 w-5 text-blue-600\" />
+            {mode === 'signin' && 'Secure Sign In'}
+            {mode === 'signup' && 'Create Secure Account'}
+            {mode === 'verify' && 'Email Verification'}
+          </DialogTitle>
+          <DialogDescription>
+            {mode === 'signin' && 'Sign in to access the YCCC Nursing Inventory system'}
+            {mode === 'signup' && 'Create a new account with enhanced security'}
+            {mode === 'verify' && 'Verify your email address to complete registration'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className=\"space-y-4\">
+          {mode !== 'verify' && (
+            <div className=\"space-y-2\">
+              <Label htmlFor=\"email\" className=\"flex items-center gap-2\">
+                <Mail className=\"h-4 w-4\" />
+                Email Address
+              </Label>
+              <Input
+                id=\"email\"
+                type=\"email\"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder=\"your.email@mainecc.edu\"
+                required
+                className={!emailWhitelisted && email ? 'border-red-500' : ''}
+              />
+              {email && !emailWhitelisted && (
+                <p className=\"text-sm text-red-600 flex items-center gap-1\">
+                  <XCircle className=\"h-4 w-4\" />
+                  Only @mainecc.edu emails are authorized
+                </p>
+              )}
+              {email && emailWhitelisted && (
+                <p className=\"text-sm text-green-600 flex items-center gap-1\">
+                  <CheckCircle className=\"h-4 w-4\" />
+                  Authorized email domain
+                </p>
+              )}
+            </div>
+          )}
+
+          {mode !== 'verify' && (
+            <div className=\"space-y-2\">
+              <Label htmlFor=\"password\" className=\"flex items-center gap-2\">
+                <Lock className=\"h-4 w-4\" />
+                Password
+              </Label>
+              <div className=\"relative\">
+                <Input
+                  id=\"password\"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => handlePasswordChange(e.target.value)}
+                  placeholder={mode === 'signup' ? 'Create a strong password (12+ characters)' : 'Enter your password'}
+                  required
+                  className=\"pr-10\"
+                />
+                <Button
+                  type=\"button\"
+                  variant=\"ghost\"
+                  size=\"sm\"
+                  className=\"absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent\"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className=\"h-4 w-4\" /> : <Eye className=\"h-4 w-4\" />}
+                </Button>
+              </div>
+              
+              {mode === 'signup' && password && (
+                <div className=\"space-y-2\">
+                  <div className=\"flex items-center justify-between text-sm\">
+                    <span>Password Strength:</span>
+                    <span className={`font-medium ${
+                      passwordStrength.isValid ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {getPasswordStrengthText()}
+                    </span>
+                  </div>
+                  <div className=\"w-full bg-gray-200 rounded-full h-2\">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
+                      style={{ width: `${Math.max(10, (4 - passwordStrength.errors.length) * 25)}%` }}
+                    />
+                  </div>
+                  {passwordStrength.errors.length > 0 && (
+                    <div className=\"text-sm text-red-600 space-y-1\">
+                      {passwordStrength.errors.slice(0, 2).map((error, index) => (
+                        <p key={index} className=\"flex items-center gap-1\">
+                          <XCircle className=\"h-3 w-3\" />
+                          {error}
+                        </p>
+                      ))}
+                      {passwordStrength.errors.length > 2 && (
+                        <p className=\"text-xs text-gray-600\">+{passwordStrength.errors.length - 2} more requirements</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {mode === 'signup' && (
+            <div className=\"space-y-2\">
+              <Label htmlFor=\"confirmPassword\">Confirm Password</Label>
+              <div className=\"relative\">
+                <Input
+                  id=\"confirmPassword\"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder=\"Confirm your password\"
+                  required
+                  className=\"pr-10\"
+                />
+                <Button
+                  type=\"button\"
+                  variant=\"ghost\"
+                  size=\"sm\"
+                  className=\"absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent\"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <EyeOff className=\"h-4 w-4\" /> : <Eye className=\"h-4 w-4\" />}
+                </Button>
+              </div>
+              {password && confirmPassword && password !== confirmPassword && (
+                <p className=\"text-sm text-red-600 flex items-center gap-1\">
+                  <XCircle className=\"h-4 w-4\" />
+                  Passwords do not match
+                </p>
+              )}
+            </div>
+          )}
+
+          {mode === 'verify' && (
+            <div className=\"text-center space-y-4\">
+              <div className=\"mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center\">
+                <Mail className=\"h-8 w-8 text-blue-600\" />
+              </div>
+              <div>
+                <h3 className=\"font-semibold\">Check Your Email</h3>
+                <p className=\"text-sm text-gray-600 mt-1\">
+                  We sent a verification link to <strong>{email}</strong>
+                </p>
+                <p className=\"text-xs text-gray-500 mt-2\">
+                  Click the link in your email to verify your account, then return here to sign in.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className=\"flex flex-col gap-2\">
+            <Button 
+              type=\"submit\" 
+              disabled={isLoading || (email && !emailWhitelisted)}
+              className=\"w-full\"
+            >
+              {isLoading ? 'Processing...' : 
+               mode === 'signin' ? 'Sign In Securely' :
+               mode === 'signup' ? 'Create Secure Account' :
+               'Resend Verification Email'}
+            </Button>
+            
+            {mode === 'signin' && (
+              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signup')}>
+                Create New Account
+              </Button>
+            )}
+            
+            {mode === 'signup' && (
+              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signin')}>
+                Already have an account? Sign In
+              </Button>
+            )}
+            
+            {mode === 'verify' && (
+              <Button type=\"button\" variant=\"outline\" onClick={() => switchMode('signin')}>
+                Back to Sign In
+              </Button>
+            )}
+          </div>
+        </form>
+
+        <div className=\"text-xs text-gray-500 text-center space-y-1\">
+          <p className=\"flex items-center justify-center gap-1\">
+            <Shield className=\"h-3 w-3\" />
+            Secured with enterprise-grade encryption
+          </p>
+          <p>Only authorized @mainecc.edu emails can access this system</p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
