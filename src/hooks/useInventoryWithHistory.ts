@@ -35,18 +35,20 @@ export const useInventoryWithHistory = () => {
     queryKey: ["inventory"],
     queryFn: async () => {
       try {
+        console.log("🔄 Fetching inventory items...");
         const { data, error } = await supabase
           .from("inventory_items")
           .select("*")
           .order("item", { ascending: true });
-        
+      
         if (error) {
-          console.error("Database error:", error);
+          console.error("❌ Database query error:", error);
           throw error;
         }
+        console.log("✅ Inventory items fetched:", data.length);
         return data as InventoryItem[];
       } catch (err) {
-        console.error("Query error:", err);
+        console.error("🚨 Query error in useInventoryWithHistory:", err);
         throw err;
       }
     },
@@ -82,7 +84,7 @@ export const useInventoryWithHistory = () => {
           throw new Error("Not authenticated. Please sign in again.");
         }
 
-        console.log("Adding item:", newItem);
+        console.log("➕ Attempting to add item to Supabase:", newItem);
         
         const { data, error } = await supabase
           .from("inventory_items")
@@ -90,21 +92,22 @@ export const useInventoryWithHistory = () => {
           .select();
         
         if (error) {
-          console.error("Insert error:", error);
+          console.error("❌ Supabase insert error:", error);
           if (error.code === 'PGRST301') {
             throw new Error("Permission denied. Please check your email verification and try again.");
           }
           throw error;
         }
         
-        console.log("Item added successfully:", data);
+        console.log("✅ Item added successfully to Supabase:", data);
         return data;
       } catch (err) {
-        console.error("Add item error:", err);
+        console.error("🚨 Add item mutation failed:", err);
         throw err;
       }
     },
     onSuccess: (data) => {
+      console.log("🎉 Add item mutation onSuccess! Invalidating queries...");
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       if (data && data[0]) {
         addToHistory({
@@ -119,7 +122,7 @@ export const useInventoryWithHistory = () => {
       });
     },
     onError: (error: any) => {
-      console.error("Add item mutation error:", error);
+      console.error("🔥 Add item mutation onError:", error);
       toast({
         title: "Error Adding Item",
         description: error.message || "Failed to add item. Please check your permissions and try again.",
@@ -137,7 +140,7 @@ export const useInventoryWithHistory = () => {
           throw new Error("Not authenticated. Please sign in again.");
         }
 
-        console.log("Updating item:", id, updates);
+        console.log(`✏️ Attempting to update item ID ${id} in Supabase with:`, updates);
 
         // Get current item for history
         const { data: currentData, error: fetchError } = await supabase
@@ -147,7 +150,7 @@ export const useInventoryWithHistory = () => {
           .single();
 
         if (fetchError) {
-          console.error("Fetch error:", fetchError);
+          console.error(`❌ Fetch error for item ID ${id} before update:`, fetchError);
           throw fetchError;
         }
 
@@ -158,22 +161,24 @@ export const useInventoryWithHistory = () => {
           .select();
         
         if (error) {
-          console.error("Update error:", error);
+          console.error(`❌ Supabase update error for item ID ${id}:`, error);
           if (error.code === 'PGRST301') {
             throw new Error("Permission denied. You may not have permission to edit this item.");
           }
           throw error;
         }
         
-        console.log("Item updated successfully:", data);
+        console.log(`✅ Item ID ${id} updated successfully in Supabase:`, data);
         return { updated: data, previous: currentData };
       } catch (err) {
-        console.error("Update item error:", err);
+        console.error(`🚨 Update item mutation failed for ID ${id}:`, err);
         throw err;
       }
     },
     onSuccess: ({ updated, previous }) => {
+      console.log("🎉 Update item mutation onSuccess! Invalidating queries...");
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      console.log("✨ Updated data after mutation success:", updated);
       if (updated && updated[0]) {
         addToHistory({
           type: 'update',
@@ -188,7 +193,7 @@ export const useInventoryWithHistory = () => {
       });
     },
     onError: (error: any) => {
-      console.error("Update item mutation error:", error);
+      console.error("🔥 Update item mutation onError:", error);
       toast({
         title: "Error Updating Item",
         description: error.message || "Failed to update item. Please check your permissions and try again.",
@@ -206,7 +211,7 @@ export const useInventoryWithHistory = () => {
           throw new Error("Not authenticated. Please sign in again.");
         }
 
-        console.log("Deleting item:", id);
+        console.log(`🗑️ Attempting to delete item ID ${id} from Supabase`);
 
         // Get current item for history
         const { data: currentData, error: fetchError } = await supabase
@@ -216,7 +221,7 @@ export const useInventoryWithHistory = () => {
           .single();
 
         if (fetchError) {
-          console.error("Fetch error:", fetchError);
+          console.error(`❌ Fetch error for item ID ${id} before delete:`, fetchError);
           throw fetchError;
         }
 
@@ -226,21 +231,22 @@ export const useInventoryWithHistory = () => {
           .eq("id", id);
         
         if (error) {
-          console.error("Delete error:", error);
+          console.error(`❌ Supabase delete error for item ID ${id}:`, error);
           if (error.code === 'PGRST301') {
             throw new Error("Permission denied. You may not have permission to delete this item.");
           }
           throw error;
         }
         
-        console.log("Item deleted successfully");
+        console.log(`✅ Item ID ${id} deleted successfully from Supabase`);
         return currentData;
       } catch (err) {
-        console.error("Delete item error:", err);
+        console.error(`🚨 Delete item mutation failed for ID ${id}:`, err);
         throw err;
       }
     },
     onSuccess: (deletedItem) => {
+      console.log("🎉 Delete item mutation onSuccess! Invalidating queries...");
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       if (deletedItem) {
         addToHistory({
@@ -255,7 +261,7 @@ export const useInventoryWithHistory = () => {
       });
     },
     onError: (error: any) => {
-      console.error("Delete item mutation error:", error);
+      console.error("🔥 Delete item mutation onError:", error);
       toast({
         title: "Error Deleting Item",
         description: error.message || "Failed to remove item. Please check your permissions and try again.",
@@ -275,10 +281,12 @@ export const useInventoryWithHistory = () => {
     }
 
     const actionToUndo = history[currentHistoryIndex];
+    console.log("↩️ Attempting to undo action:", actionToUndo);
     
     try {
       switch (actionToUndo.type) {
         case 'add':
+          console.log(`↩️ Undoing add: Deleting item ID ${actionToUndo.item.id}`);
           await supabase
             .from("inventory_items")
             .delete()
@@ -286,6 +294,7 @@ export const useInventoryWithHistory = () => {
           break;
         case 'update':
           if (actionToUndo.previousItem) {
+            console.log(`↩️ Undoing update: Restoring item ID ${actionToUndo.item.id} to previous state`);
             const { id, created_at, updated_at, ...restoreData } = actionToUndo.previousItem;
             await supabase
               .from("inventory_items")
@@ -294,6 +303,7 @@ export const useInventoryWithHistory = () => {
           }
           break;
         case 'delete':
+          console.log(`↩️ Undoing delete: Re-inserting item ID ${actionToUndo.item.id}`);
           const { id, created_at, updated_at, ...restoreData } = actionToUndo.item;
           await supabase
             .from("inventory_items")
@@ -308,8 +318,9 @@ export const useInventoryWithHistory = () => {
         title: "Action Undone",
         description: `Undid: ${actionToUndo.description}`,
       });
+      console.log("✅ Action undone successfully.");
     } catch (error: any) {
-      console.error("Undo error:", error);
+      console.error("🚨 Undo error:", error);
       toast({
         title: "Undo Failed",
         description: error.message || "Failed to undo action",
@@ -329,16 +340,19 @@ export const useInventoryWithHistory = () => {
     }
 
     const actionToRedo = history[currentHistoryIndex + 1];
+    console.log("➡️ Attempting to redo action:", actionToRedo);
     
     try {
       switch (actionToRedo.type) {
         case 'add':
+          console.log(`➡️ Redoing add: Re-inserting item ID ${actionToRedo.item.id}`);
           const { id, created_at, updated_at, ...addData } = actionToRedo.item;
           await supabase
             .from("inventory_items")
             .insert([addData]);
           break;
         case 'update':
+          console.log(`➡️ Redoing update: Re-applying update for item ID ${actionToRedo.item.id}`);
           const { id: updateId, created_at: updateCreated, updated_at: updateUpdated, ...updateData } = actionToRedo.item;
           await supabase
             .from("inventory_items")
@@ -346,6 +360,7 @@ export const useInventoryWithHistory = () => {
             .eq("id", updateId);
           break;
         case 'delete':
+          console.log(`➡️ Redoing delete: Deleting item ID ${actionToRedo.item.id}`);
           await supabase
             .from("inventory_items")
             .delete()
@@ -360,8 +375,9 @@ export const useInventoryWithHistory = () => {
         title: "Action Redone",
         description: `Redid: ${actionToRedo.description}`,
       });
+      console.log("✅ Action redone successfully.");
     } catch (error: any) {
-      console.error("Redo error:", error);
+      console.error("🚨 Redo error:", error);
       toast({
         title: "Redo Failed",
         description: error.message || "Failed to redo action",
