@@ -5,6 +5,11 @@ on:
     branches:
       - main # Set this to your default branch (e.g., main, master)
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write # This is the new line we're adding
+
 jobs:
   build:
     runs-on: ubuntu-latest
