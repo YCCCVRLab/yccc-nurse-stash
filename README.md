@@ -1,91 +1,120 @@
 # YCCC Nursing Inventory System
 
-A comprehensive inventory management system for York County Community College's nursing program.
+A comprehensive inventory management system for York County Community College's nursing program, built for collaborative inventory management by nursing staff.
 
-## Enhanced Version Available
+## 🚀 Live Application
 
-**NEW**: Enhanced version with debugging tools and undo/redo functionality is now available at:
-- **Enhanced Route**: `/enhanced` (append to your URL)
-- **Features**: Debug panel, undo/redo, better error handling, action history
+**Production URL**: https://ycccvrlab.github.io/yccc-nurse-stash/
 
-## Project info
+## ✨ Features
 
-**URL**: https://lovable.dev/projects/66b903dc-72b6-4d0a-b79c-c4392a2e76a6
+- **Collaborative Inventory Management**: Any authenticated user can edit/delete items added by others
+- **Secure Authentication**: Restricted to @mainecc.edu email addresses
+- **Advanced Filtering & Search**: Filter by location, stock level, and search across all fields
+- **Undo/Redo Functionality**: Track and reverse inventory actions
+- **Debug Tools**: Built-in diagnostics for troubleshooting permissions and database issues
+- **Responsive Design**: Works on desktop and mobile devices
+- **Real-time Updates**: Changes are reflected immediately across all users
 
-## Troubleshooting Edit/Delete Issues
+## 🔐 Access & Security
 
-If you're experiencing problems with editing or deleting items:
+- **Authentication Required**: Sign in with your @mainecc.edu email address
+- **Email Verification**: Your email must be confirmed to access the system
+- **Whitelisted Domains**: Only YCCC staff can access the inventory
+- **Audit Logging**: All actions are logged for security and compliance
 
-1. **Use Enhanced Version**: Navigate to `/enhanced` in your URL
-2. **Check Authentication**: Ensure you're signed in with @mainecc.edu email
-3. **Use Debug Panel**: Click "Debug" button for diagnostics
-4. **See TROUBLESHOOTING.md** for detailed solutions
+## 🛠 Technologies Used
 
-## How can I edit this code?
+- **Frontend**: React, TypeScript, Vite
+- **UI Framework**: shadcn/ui with Tailwind CSS
+- **Backend**: Supabase (PostgreSQL database with Row Level Security)
+- **Authentication**: Supabase Auth with email verification
+- **Deployment**: GitHub Pages with automated CI/CD
 
-There are several ways of editing your application.
+## 🏥 For Nursing Staff
 
-**Use Lovable**
+### Getting Started
+1. Navigate to the live application URL above
+2. Click "Sign In" and use your @mainecc.edu email address
+3. Check your email for verification link
+4. Once verified, you can view and manage inventory
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/66b903dc-72b6-4d0a-b79c-c4392a2e76a6) and start prompting.
+### Managing Inventory
+- **Add Items**: Click "Add Item" button (requires sign-in)
+- **Edit Items**: Click "Edit" on any item card
+- **Delete Items**: Click "Delete" on any item card
+- **Search**: Use the search bar to find specific items
+- **Filter**: Filter by location or stock level using the dropdown menus
+- **Undo/Redo**: Use the Undo/Redo buttons to reverse recent actions
 
-Changes made via Lovable will be committed automatically to this repo.
+### Troubleshooting
+If you experience issues with editing or deleting items:
+1. Ensure you're signed in with your @mainecc.edu email
+2. Verify your email is confirmed (check your inbox)
+3. Use the "Debug" button to run system diagnostics
+4. Contact IT support if problems persist
 
-**Use your preferred IDE**
+## 🔧 Development
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Local Development Setup
+```bash
+# Clone the repository
+git clone https://github.com/YCCCVRLab/yccc-nurse-stash.git
+cd yccc-nurse-stash
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Install dependencies
+npm install
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Database Migrations
+The project includes Supabase migrations in `/supabase/migrations/`:
+- `001_enhanced_security.sql`: Initial security setup with RLS policies
+- `20250826154500_repopulate_inventory.sql`: CSV data import
+- `20250826155000_shared_inventory_access.sql`: Shared access permissions
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
+Create a `.env` file with your Supabase credentials:
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-**Use GitHub Codespaces**
+## 📝 Database Schema
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The inventory system uses a PostgreSQL database with the following main table:
 
-## What technologies are used for this project?
+```sql
+inventory_items (
+  id: UUID (Primary Key)
+  item: TEXT (Item name)
+  description: TEXT (Optional description)
+  location: TEXT (Storage location)
+  shelf_drawer: TEXT (Specific shelf/drawer)
+  tub_number: TEXT (Container number)
+  quantity: TEXT (Current quantity)
+  user_id: UUID (User who added the item)
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+)
+```
 
-This project is built with:
+## 🚀 Deployment
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-- Supabase (Database & Authentication)
+The application is automatically deployed to GitHub Pages when changes are pushed to the main branch. The deployment process:
 
-## How can I deploy this project?
+1. GitHub Actions builds the React application
+2. Deploys to GitHub Pages
+3. Updates are live within minutes
 
-Simply open [Lovable](https://lovable.dev/projects/66b903dc-72b6-4d0a-b79c-c4392a2e76a6) and click on Share -> Publish.
+## 📞 Support
 
-## Can I connect a custom domain to my Lovable project?
+For technical support or access issues, contact:
+- **IT Support**: john.barr@mainecc.edu
+- **GitHub Issues**: Use the Issues tab in this repository
 
-Yes, you can!
+## 📄 License
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is developed for York County Community College's internal use.
