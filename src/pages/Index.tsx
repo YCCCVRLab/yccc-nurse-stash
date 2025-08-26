@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, LogIn, LogOut, User } from "lucide-react";
+import { Plus, LogIn, LogOut, User, Undo, Redo, History, AlertTriangle, Bug, Copy, CheckCircle, XCircle } from "lucide-react";
 import { useInventory } from "@/hooks/useInventory";
 import { useAuth } from "@/hooks/useAuth";
 import { InventoryCard } from "@/components/InventoryCard";
@@ -8,10 +8,17 @@ import { InventoryFilters } from "@/components/InventoryFilters";
 import { ItemDialog } from "@/components/ItemDialog";
 import { AuthDialog } from "@/components/AuthDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const { items, isLoading, addItem, updateItem, deleteItem } = useInventory();
   const { user, signOut, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("all");
@@ -22,6 +29,8 @@ const Index = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const locations = useMemo(() => {
     return Array.from(new Set(items.map(item => item.location))).sort();
@@ -64,18 +73,142 @@ const Index = () => {
     });
   }, [items, search, location, stockLevel, sortBy]);
 
+  const runDiagnostics = async () => {
+    try {
+      console.log("🔍 Running diagnostics...");
+      
+      // Get current user info
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      console.log("👤 Current user:", currentUser);
+      
+      // Get session info
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("🔑 Session:", session);
+      
+      // Test database connection
+      let dbConnectionTest = null;
+      try {
+        const { data, error } = await supabase
+          .from("inventory_items")
+          .select("count", { count: 'exact', head: true });
+        dbConnectionTest = { success: !error, error: error?.message, count: data };
+        console.log("💾 Database test:", dbConnectionTest);
+      } catch (err: any) {
+        dbConnectionTest = { success: false, error: err.message };
+        console.error("💾 Database error:", err);
+      }
+
+      // Test permissions
+      let permissionTest = null;
+      try {
+        const { data, error } = await supabase
+          .from("inventory_items")
+          .select("*")
+          .limit(1);
+        permissionTest = { 
+          canRead: !error, 
+          readError: error?.message,
+          itemCount: data?.length || 0
+        };
+        console.log("🔐 Permission test:", permissionTest);
+      } catch (err: any) {
+        permissionTest = { canRead: false, readError: err.message };
+        console.error("🔐 Permission error:", err);
+      }
+
+      // Test update permission with a real item
+      let updateTest = null;
+      if (items.length > 0) {
+        try {
+          const testItem = items[0];
+          const { data, error } = await supabase
+            .from("inventory_items")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", testItem.id)
+            .select();
+          updateTest = { canUpdate: !error, error: error?.message };
+          console.log("✏️ Update test:", updateTest);
+        } catch (err: any) {
+          updateTest = { canUpdate: false, error: err.message };
+          console.error("✏️ Update error:", err);
+        }
+      }
+
+      const diagnostics = {
+        timestamp: new Date().toISOString(),
+        authentication: {
+          isAuthenticated,
+          user: currentUser,
+          userError: userError?.message,
+          session: session ? {
+            access_token: session.access_token ? "Present" : "Missing",
+            refresh_token: session.refresh_token ? "Present" : "Missing",
+            expires_at: session.expires_at,
+            user: {
+              id: session.user?.id,
+              email: session.user?.email,
+              email_confirmed_at: session.user?.email_confirmed_at,
+              created_at: session.user?.created_at,
+            }
+          } : null,
+          sessionError: sessionError?.message,
+        },
+        database: dbConnectionTest,
+        permissions: {
+          read: permissionTest,
+          update: updateTest,
+        },
+        environment: {
+          url: window.location.href,
+          userAgent: navigator.userAgent,
+          supabaseUrl: import.meta.env.VITE_SUPABASE_URL || "Not set",
+        }
+      };
+
+      setDebugInfo(diagnostics);
+      console.log("🎯 Full diagnostics:", diagnostics);
+    } catch (error: any) {
+      console.error("🚨 Debug error:", error);
+      toast({
+        title: "Debug Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (debugInfo) {
+      navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2));
+      toast({
+        title: "Copied",
+        description: "Debug information copied to clipboard",
+      });
+    }
+  };
+
+  const getStatusIcon = (success: boolean | null) => {
+    if (success === null) return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    return success ? 
+      <CheckCircle className="h-4 w-4 text-green-500" /> : 
+      <XCircle className="h-4 w-4 text-red-500" />;
+  };
+
   const handleEditItem = (item: any) => {
+    console.log("🖊️ Attempting to edit item:", item);
     setEditingItem(item);
     setItemDialogOpen(true);
   };
 
   const handleDeleteItem = (id: number) => {
+    console.log("🗑️ Attempting to delete item ID:", id);
     setItemToDelete(id);
     setDeleteDialogOpen(true);
   };
 
   const confirmDelete = () => {
     if (itemToDelete) {
+      console.log("🗑️ Confirming delete for item ID:", itemToDelete);
       deleteItem.mutate(itemToDelete);
       setDeleteDialogOpen(false);
       setItemToDelete(null);
@@ -83,9 +216,12 @@ const Index = () => {
   };
 
   const handleSaveItem = (itemData: any) => {
+    console.log("💾 Attempting to save item:", itemData);
     if (editingItem) {
+      console.log("✏️ Updating existing item");
       updateItem.mutate(itemData);
     } else {
+      console.log("➕ Adding new item");
       addItem.mutate({ ...itemData, user_id: user?.id || "" });
     }
     setEditingItem(null);
@@ -93,9 +229,11 @@ const Index = () => {
 
   const handleAddNew = () => {
     if (!isAuthenticated) {
+      console.log("🚫 User not authenticated, showing auth dialog");
       setAuthDialogOpen(true);
       return;
     }
+    console.log("➕ Opening add item dialog");
     setEditingItem(null);
     setItemDialogOpen(true);
   };
@@ -108,10 +246,121 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-primary">YCCC Nursing Inventory</h1>
-              <p className="text-sm text-muted-foreground">York County Community College</p>
+              <p className="text-sm text-muted-foreground">York County Community College - Enhanced with Debug Tools</p>
             </div>
             
             <div className="flex items-center gap-3">
+              {/* Debug Panel */}
+              <Dialog open={debugDialogOpen} onOpenChange={setDebugDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Bug className="h-4 w-4" />
+                    Debug
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Bug className="h-5 w-5" />
+                      System Diagnostics
+                    </DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Button onClick={runDiagnostics}>Run Diagnostics</Button>
+                      {debugInfo && (
+                        <Button variant="outline" onClick={copyToClipboard}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Debug Info
+                        </Button>
+                      )}
+                    </div>
+
+                    {debugInfo && (
+                      <div className="space-y-4">
+                        {/* Authentication Status */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              {getStatusIcon(debugInfo.authentication.isAuthenticated)}
+                              Authentication Status
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Authenticated:</span>
+                              <Badge variant={debugInfo.authentication.isAuthenticated ? "default" : "destructive"}>
+                                {debugInfo.authentication.isAuthenticated ? "Yes" : "No"}
+                              </Badge>
+                            </div>
+                            {debugInfo.authentication.user && (
+                              <>
+                                <div><strong>Email:</strong> {debugInfo.authentication.user.email}</div>
+                                <div><strong>Email Confirmed:</strong> {debugInfo.authentication.user.email_confirmed_at || "Not confirmed"}</div>
+                                <div><strong>User ID:</strong> {debugInfo.authentication.user.id}</div>
+                              </>
+                            )}
+                            {debugInfo.authentication.userError && (
+                              <div className="text-red-600"><strong>User Error:</strong> {debugInfo.authentication.userError}</div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* Database Connection */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              {getStatusIcon(debugInfo.database?.success)}
+                              Database Connection
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {debugInfo.database?.success ? (
+                              <div className="text-green-600">✓ Database connection successful</div>
+                            ) : (
+                              <div className="text-red-600">✗ Database error: {debugInfo.database?.error}</div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* Permissions */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Permissions Test</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              {getStatusIcon(debugInfo.permissions.read?.canRead)}
+                              <span>Read Permission:</span>
+                              <Badge variant={debugInfo.permissions.read?.canRead ? "default" : "destructive"}>
+                                {debugInfo.permissions.read?.canRead ? "Granted" : "Denied"}
+                              </Badge>
+                            </div>
+                            {debugInfo.permissions.read?.readError && (
+                              <div className="text-red-600 text-sm">Error: {debugInfo.permissions.read.readError}</div>
+                            )}
+                            
+                            {debugInfo.permissions.update && (
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(debugInfo.permissions.update?.canUpdate)}
+                                <span>Update Permission:</span>
+                                <Badge variant={debugInfo.permissions.update?.canUpdate ? "default" : "destructive"}>
+                                  {debugInfo.permissions.update?.canUpdate ? "Granted" : "Denied"}
+                                </Badge>
+                              </div>
+                            )}
+                            {debugInfo.permissions.update?.error && (
+                              <div className="text-red-600 text-sm">Error: {debugInfo.permissions.update.error}</div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {isAuthenticated && (
                 <Button onClick={handleAddNew} className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
@@ -142,6 +391,19 @@ const Index = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
+        {/* Help Notice */}
+        {!isAuthenticated && (
+          <Alert className="mb-6">
+            <Bug className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Troubleshooting Edit/Delete Issues:</strong> 
+              <br />1. Sign in with your @mainecc.edu email
+              <br />2. Use the "Debug" button above to check permissions
+              <br />3. Look for detailed error messages in the browser console (F12)
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Filters */}
         <InventoryFilters
           search={search}
