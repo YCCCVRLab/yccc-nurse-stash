@@ -130,39 +130,42 @@ const Index = () => {
         console.error("🔐 Read permission error:", err);
       }
 
-      // Specific test: Try to update an 'ABD Pads' item
-      let abdPadsUpdateTest = null;
-      const abdPadsItem = items.find(item => item.item === "ABD Pads");
-      if (abdPadsItem) {
-        try {
-          const originalDescription = abdPadsItem.description;
-          const testDescription = `Debug Test: ${new Date().toLocaleString()}`;
+      // Specific test: Try to update ALL 'ABD Pads' items
+      const abdPadsItems = items.filter(item => item.item === "ABD Pads");
+      let abdPadsUpdateTests: { id: number; location: string; success: boolean; error?: string; message?: string }[] = [];
 
-          console.log(`✏️ Attempting to update 'ABD Pads' (ID: ${abdPadsItem.id}) description to: ${testDescription}`);
-          const { error } = await supabase
-            .from("inventory_items")
-            .update({ description: testDescription })
-            .eq("id", abdPadsItem.id);
-          
-          if (!error) {
-            // Revert the change immediately after successful test
-            await supabase
+      if (abdPadsItems.length > 0) {
+        for (const item of abdPadsItems) {
+          try {
+            const originalDescription = item.description;
+            const testDescription = `Debug Test: ${new Date().toLocaleString()}`;
+
+            console.log(`✏️ Attempting to update 'ABD Pads' (ID: ${item.id}, Location: ${item.location}) description to: ${testDescription}`);
+            const { error } = await supabase
               .from("inventory_items")
-              .update({ description: originalDescription })
-              .eq("id", abdPadsItem.id);
-            abdPadsUpdateTest = { success: true, message: "Successfully updated and reverted 'ABD Pads' item." };
-            console.log("✅ 'ABD Pads' update test successful and reverted.");
-          } else {
-            abdPadsUpdateTest = { success: false, error: error.message };
-            console.error("❌ 'ABD Pads' update test failed:", error);
+              .update({ description: testDescription })
+              .eq("id", item.id);
+            
+            if (!error) {
+              // Revert the change immediately after successful test
+              await supabase
+                .from("inventory_items")
+                .update({ description: originalDescription })
+                .eq("id", item.id);
+              abdPadsUpdateTests.push({ id: item.id, location: item.location, success: true, message: "Successfully updated and reverted." });
+              console.log(`✅ 'ABD Pads' (ID: ${item.id}) update test successful and reverted.`);
+            } else {
+              abdPadsUpdateTests.push({ id: item.id, location: item.location, success: false, error: error.message });
+              console.error(`❌ 'ABD Pads' (ID: ${item.id}) update test failed:`, error);
+            }
+          } catch (err: any) {
+            abdPadsUpdateTests.push({ id: item.id, location: item.location, success: false, error: err.message });
+            console.error(`🚨 'ABD Pads' (ID: ${item.id}) update test threw an error:`, err);
           }
-        } catch (err: any) {
-          abdPadsUpdateTest = { success: false, error: err.message };
-          console.error("🚨 'ABD Pads' update test threw an error:", err);
         }
       } else {
-        abdPadsUpdateTest = { success: false, message: "'ABD Pads' item not found for specific update test." };
-        console.log("⚠️ 'ABD Pads' item not found for specific update test.");
+        abdPadsUpdateTests.push({ id: 0, location: "N/A", success: false, message: "No 'ABD Pads' items found for specific update test." });
+        console.log("⚠️ No 'ABD Pads' items found for specific update test.");
       }
 
       const diagnostics = {
@@ -187,7 +190,7 @@ const Index = () => {
         database: dbConnectionTest,
         permissions: {
           read: readPermissionTest,
-          abdPadsUpdate: abdPadsUpdateTest,
+          abdPadsUpdates: abdPadsUpdateTests, // Now an array of results
         },
         environment: {
           url: window.location.href,
@@ -380,19 +383,29 @@ const Index = () => {
                               <div className="text-red-600 text-sm">Error: {debugInfo.permissions.read.readError}</div>
                             )}
                             
-                            {debugInfo.permissions.abdPadsUpdate && (
-                              <div className="flex items-center gap-2">
-                                {getStatusIcon(debugInfo.permissions.abdPadsUpdate?.success)}
-                                <span>Update 'ABD Pads' Item Permission:</span>
-                                <Badge variant={debugInfo.permissions.abdPadsUpdate?.success ? "default" : "destructive"}>
-                                  {debugInfo.permissions.abdPadsUpdate?.success ? "Granted" : "Denied"}
-                                </Badge>
+                            {debugInfo.permissions.abdPadsUpdates && debugInfo.permissions.abdPadsUpdates.length > 0 && (
+                              <div className="space-y-2">
+                                <p className="font-medium">Update 'ABD Pads' Items Permissions:</p>
+                                {debugInfo.permissions.abdPadsUpdates.map((test: any) => (
+                                  <div key={test.id} className="flex items-center gap-2 ml-4">
+                                    {getStatusIcon(test.success)}
+                                    <span>ID: {test.id}, Location: {test.location}:</span>
+                                    <Badge variant={test.success ? "default" : "destructive"}>
+                                      {test.success ? "Granted" : "Denied"}
+                                    </Badge>
+                                    {test.error && (
+                                      <div className="text-red-600 text-sm">Error: {test.error}</div>
+                                    )}
+                                    {test.message && !test.error && (
+                                      <div className="text-yellow-600 text-sm">{test.message}</div>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             )}
-                            {debugInfo.permissions.abdPadsUpdate?.error && (
-                              <div className="text-red-600 text-sm">Error: {debugInfo.permissions.abdPadsUpdate.error}</div>
+                            {debugInfo.permissions.abdPadsUpdates && debugInfo.permissions.abdPadsUpdates.length === 0 && (
+                              <div className="text-yellow-600 text-sm">Warning: No 'ABD Pads' items found for specific update test. Add one if you want to test this.</div>
                             )}
-                             {!abdPadsItem && (<div className="text-yellow-600 text-sm">Warning: 'ABD Pads' item not found for specific update test. Add one if you want to test this.</div>)}
                           </CardContent>
                         </Card>
                       </div>
