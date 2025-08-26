@@ -21,8 +21,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   define: {
-    // This is crucial for fixing 'process is not defined' errors in browser environments.
-    // It tells Vite to replace any instance of 'process.env.NODE_ENV' with the actual mode.
-    'process.env.NODE_ENV': JSON.stringify(mode),
+    // More robust fix for 'process is not defined' in browser environments.
+    // Defines global and process objects to prevent ReferenceErrors.
+    'global': {},
+    'process': { env: { NODE_ENV: JSON.stringify(mode) } },
   },
 }));
