@@ -1,8 +1,25 @@
-# Welcome to your Lovable project
+# YCCC Nursing Inventory System
+
+A comprehensive inventory management system for York County Community College's nursing program.
+
+## Enhanced Version Available
+
+**NEW**: Enhanced version with debugging tools and undo/redo functionality is now available at:
+- **Enhanced Route**: `/enhanced` (append to your URL)
+- **Features**: Debug panel, undo/redo, better error handling, action history
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/66b903dc-72b6-4d0a-b79c-c4392a2e76a6
+
+## Troubleshooting Edit/Delete Issues
+
+If you're experiencing problems with editing or deleting items:
+
+1. **Use Enhanced Version**: Navigate to `/enhanced` in your URL
+2. **Check Authentication**: Ensure you're signed in with @mainecc.edu email
+3. **Use Debug Panel**: Click "Debug" button for diagnostics
+4. **See TROUBLESHOOTING.md** for detailed solutions
 
 ## How can I edit this code?
 
@@ -59,6 +76,7 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Database & Authentication)
 
 ## How can I deploy this project?
 
