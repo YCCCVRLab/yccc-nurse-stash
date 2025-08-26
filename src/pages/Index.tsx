@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, LogIn, LogOut, User, Undo, Redo, History, AlertTriangle, Bug, Copy, CheckCircle, XCircle } from "lucide-react";
-import { useInventory } from "@/hooks/useInventory";
+import { useInventoryWithHistory, InventoryItem } from "@/hooks/useInventoryWithHistory";
 import { useAuth } from "@/hooks/useAuth";
 import { InventoryCard } from "@/components/InventoryCard";
 import { InventoryFilters } from "@/components/InventoryFilters";
@@ -16,7 +16,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
-  const { items, isLoading, addItem, updateItem, deleteItem } = useInventory();
+  const { 
+    items, 
+    isLoading, 
+    error,
+    addItem, 
+    updateItem, 
+    deleteItem,
+    undoLastAction,
+    redoLastAction,
+    canUndo,
+    canRedo,
+    history
+  } = useInventoryWithHistory(); // NOW USING THE ENHANCED HOOK
   const { user, signOut, isAuthenticated } = useAuth();
   const { toast } = useToast();
   
@@ -31,6 +43,7 @@ const Index = () => {
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   const locations = useMemo(() => {
     return Array.from(new Set(items.map(item => item.location))).sort();
@@ -73,9 +86,10 @@ const Index = () => {
     });
   }, [items, search, location, stockLevel, sortBy]);
 
-  const runDiagnostics = async () => {
+  const runDiagnostics = useCallback(async () => {
     try {
       console.log("🔍 Running diagnostics...");
+      setDebugInfo(null); // Clear previous debug info
       
       // Get current user info
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
@@ -98,40 +112,57 @@ const Index = () => {
         console.error("💾 Database error:", err);
       }
 
-      // Test permissions
-      let permissionTest = null;
+      // Test general read permissions
+      let readPermissionTest = null;
       try {
         const { data, error } = await supabase
           .from("inventory_items")
           .select("*")
           .limit(1);
-        permissionTest = { 
+        readPermissionTest = { 
           canRead: !error, 
           readError: error?.message,
           itemCount: data?.length || 0
         };
-        console.log("🔐 Permission test:", permissionTest);
+        console.log("🔐 Read permission test:", readPermissionTest);
       } catch (err: any) {
-        permissionTest = { canRead: false, readError: err.message };
-        console.error("🔐 Permission error:", err);
+        readPermissionTest = { canRead: false, readError: err.message };
+        console.error("🔐 Read permission error:", err);
       }
 
-      // Test update permission with a real item
-      let updateTest = null;
-      if (items.length > 0) {
+      // Specific test: Try to update an 'ABD Pads' item
+      let abdPadsUpdateTest = null;
+      const abdPadsItem = items.find(item => item.item === "ABD Pads");
+      if (abdPadsItem) {
         try {
-          const testItem = items[0];
-          const { data, error } = await supabase
+          const originalDescription = abdPadsItem.description;
+          const testDescription = `Debug Test: ${new Date().toLocaleString()}`;
+
+          console.log(`✏️ Attempting to update 'ABD Pads' (ID: ${abdPadsItem.id}) description to: ${testDescription}`);
+          const { error } = await supabase
             .from("inventory_items")
-            .update({ updated_at: new Date().toISOString() })
-            .eq("id", testItem.id)
-            .select();
-          updateTest = { canUpdate: !error, error: error?.message };
-          console.log("✏️ Update test:", updateTest);
+            .update({ description: testDescription })
+            .eq("id", abdPadsItem.id);
+          
+          if (!error) {
+            // Revert the change immediately after successful test
+            await supabase
+              .from("inventory_items")
+              .update({ description: originalDescription })
+              .eq("id", abdPadsItem.id);
+            abdPadsUpdateTest = { success: true, message: "Successfully updated and reverted 'ABD Pads' item." };
+            console.log("✅ 'ABD Pads' update test successful and reverted.");
+          } else {
+            abdPadsUpdateTest = { success: false, error: error.message };
+            console.error("❌ 'ABD Pads' update test failed:", error);
+          }
         } catch (err: any) {
-          updateTest = { canUpdate: false, error: err.message };
-          console.error("✏️ Update error:", err);
+          abdPadsUpdateTest = { success: false, error: err.message };
+          console.error("🚨 'ABD Pads' update test threw an error:", err);
         }
+      } else {
+        abdPadsUpdateTest = { success: false, message: "'ABD Pads' item not found for specific update test." };
+        console.log("⚠️ 'ABD Pads' item not found for specific update test.");
       }
 
       const diagnostics = {
@@ -155,8 +186,8 @@ const Index = () => {
         },
         database: dbConnectionTest,
         permissions: {
-          read: permissionTest,
-          update: updateTest,
+          read: readPermissionTest,
+          abdPadsUpdate: abdPadsUpdateTest,
         },
         environment: {
           url: window.location.href,
@@ -166,6 +197,10 @@ const Index = () => {
       };
 
       setDebugInfo(diagnostics);
+      toast({
+        title: "Diagnostics Complete",
+        description: "Check the Debug panel for details.",
+      });
       console.log("🎯 Full diagnostics:", diagnostics);
     } catch (error: any) {
       console.error("🚨 Debug error:", error);
@@ -175,7 +210,7 @@ const Index = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [isAuthenticated, items, toast]);
 
   const copyToClipboard = () => {
     if (debugInfo) {
@@ -194,21 +229,25 @@ const Index = () => {
       <XCircle className="h-4 w-4 text-red-500" />;
   };
 
+  const formatHistoryTime = (date: Date) => {
+    return date.toLocaleString();
+  };
+
   const handleEditItem = (item: any) => {
-    console.log("🖊️ Attempting to edit item:", item);
+    console.log("🖊️ Attempting to edit item (client-side):", item);
     setEditingItem(item);
     setItemDialogOpen(true);
   };
 
   const handleDeleteItem = (id: number) => {
-    console.log("🗑️ Attempting to delete item ID:", id);
+    console.log("🗑️ Attempting to delete item ID (client-side):", id);
     setItemToDelete(id);
     setDeleteDialogOpen(true);
   };
 
   const confirmDelete = () => {
     if (itemToDelete) {
-      console.log("🗑️ Confirming delete for item ID:", itemToDelete);
+      console.log("🗑️ Confirming delete for item ID (client-side):", itemToDelete);
       deleteItem.mutate(itemToDelete);
       setDeleteDialogOpen(false);
       setItemToDelete(null);
@@ -216,12 +255,12 @@ const Index = () => {
   };
 
   const handleSaveItem = (itemData: any) => {
-    console.log("💾 Attempting to save item:", itemData);
+    console.log("💾 Attempting to save item (client-side):", itemData);
     if (editingItem) {
-      console.log("✏️ Updating existing item");
+      console.log("✏️ Updating existing item (client-side)");
       updateItem.mutate(itemData);
     } else {
-      console.log("➕ Adding new item");
+      console.log("➕ Adding new item (client-side)");
       addItem.mutate({ ...itemData, user_id: user?.id || "" });
     }
     setEditingItem(null);
@@ -253,7 +292,7 @@ const Index = () => {
               {/* Debug Panel */}
               <Dialog open={debugDialogOpen} onOpenChange={setDebugDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="flex items-center gap-2" title="Open debugging tools">
                     <Bug className="h-4 w-4" />
                     Debug
                   </Button>
@@ -270,7 +309,7 @@ const Index = () => {
                     <div className="flex gap-2">
                       <Button onClick={runDiagnostics}>Run Diagnostics</Button>
                       {debugInfo && (
-                        <Button variant="outline" onClick={copyToClipboard}>
+                        <Button variant="outline" onClick={copyToClipboard} title="Copy debug info to clipboard">
                           <Copy className="h-4 w-4 mr-2" />
                           Copy Debug Info
                         </Button>
@@ -332,7 +371,7 @@ const Index = () => {
                           <CardContent className="space-y-2">
                             <div className="flex items-center gap-2">
                               {getStatusIcon(debugInfo.permissions.read?.canRead)}
-                              <span>Read Permission:</span>
+                              <span>Read Inventory Permission:</span>
                               <Badge variant={debugInfo.permissions.read?.canRead ? "default" : "destructive"}>
                                 {debugInfo.permissions.read?.canRead ? "Granted" : "Denied"}
                               </Badge>
@@ -341,18 +380,19 @@ const Index = () => {
                               <div className="text-red-600 text-sm">Error: {debugInfo.permissions.read.readError}</div>
                             )}
                             
-                            {debugInfo.permissions.update && (
+                            {debugInfo.permissions.abdPadsUpdate && (
                               <div className="flex items-center gap-2">
-                                {getStatusIcon(debugInfo.permissions.update?.canUpdate)}
-                                <span>Update Permission:</span>
-                                <Badge variant={debugInfo.permissions.update?.canUpdate ? "default" : "destructive"}>
-                                  {debugInfo.permissions.update?.canUpdate ? "Granted" : "Denied"}
+                                {getStatusIcon(debugInfo.permissions.abdPadsUpdate?.success)}
+                                <span>Update 'ABD Pads' Item Permission:</span>
+                                <Badge variant={debugInfo.permissions.abdPadsUpdate?.success ? "default" : "destructive"}>
+                                  {debugInfo.permissions.abdPadsUpdate?.success ? "Granted" : "Denied"}
                                 </Badge>
                               </div>
                             )}
-                            {debugInfo.permissions.update?.error && (
-                              <div className="text-red-600 text-sm">Error: {debugInfo.permissions.update.error}</div>
+                            {debugInfo.permissions.abdPadsUpdate?.error && (
+                              <div className="text-red-600 text-sm">Error: {debugInfo.permissions.abdPadsUpdate.error}</div>
                             )}
+                             {!abdPadsItem && (<div className="text-yellow-600 text-sm">Warning: 'ABD Pads' item not found for specific update test. Add one if you want to test this.</div>)}
                           </CardContent>
                         </Card>
                       </div>
@@ -361,8 +401,71 @@ const Index = () => {
                 </DialogContent>
               </Dialog>
 
+              {/* Undo/Redo Controls */}
               {isAuthenticated && (
-                <Button onClick={handleAddNew} className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={undoLastAction}
+                    disabled={!canUndo}
+                    className="flex items-center gap-1"
+                    title="Undo last action"
+                  >
+                    <Undo className="h-3 w-3" />
+                    Undo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={redoLastAction}
+                    disabled={!canRedo}
+                    className="flex items-center gap-1"
+                    title="Redo last action"
+                  >
+                    <Redo className="h-3 w-3" />
+                    Redo
+                  </Button>
+                  <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center gap-1" title="View action history">
+                        <History className="h-3 w-3" />
+                        History ({history.length})
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Action History</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-2">
+                        {history.length === 0 ? (
+                          <p className="text-muted-foreground">No actions recorded yet.</p>
+                        ) : (
+                          history.map((action, index) => (
+                            <div key={action.id} className="flex items-center justify-between p-3 border rounded">
+                              <div>
+                                <Badge variant={
+                                  action.type === 'add' ? 'default' : 
+                                  action.type === 'update' ? 'secondary' : 'destructive'
+                                }>
+                                  {action.type.toUpperCase()}
+                                </Badge>
+                                <span className="ml-2">{action.description}</span>
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {formatHistoryTime(action.timestamp)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+
+              {isAuthenticated && (
+                <Button onClick={handleAddNew} className="flex items-center gap-2" title="Add new inventory item">
                   <Plus className="h-4 w-4" />
                   Add Item
                 </Button>
@@ -374,13 +477,13 @@ const Index = () => {
                     <User className="h-4 w-4" />
                     <span>{user?.email}</span>
                   </div>
-                  <Button variant="outline" onClick={() => signOut.mutate()}>
+                  <Button variant="outline" onClick={() => signOut.mutate()} title="Sign out">
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
                   </Button>
                 </div>
               ) : (
-                <Button variant="outline" onClick={() => setAuthDialogOpen(true)}>
+                <Button variant="outline" onClick={() => setAuthDialogOpen(true)} title="Sign in to manage inventory">
                   <LogIn className="h-4 w-4 mr-2" />
                   Sign In
                 </Button>
@@ -391,7 +494,19 @@ const Index = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Help Notice */}
+        {/* Error Display for general query errors */}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Database Error:</strong> {error.message}
+              <br />
+              <span className="text-sm">Please use the Debug panel above to diagnose the issue, or try refreshing the page.</span>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Help Notice for unauthenticated users */}
         {!isAuthenticated && (
           <Alert className="mb-6">
             <Bug className="h-4 w-4" />
@@ -447,7 +562,7 @@ const Index = () => {
               ))}
             </div>
             
-            {filteredAndSortedItems.length === 0 && (
+            {filteredAndSortedItems.length === 0 && !error && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">No items found matching your filters.</p>
               </div>
@@ -475,7 +590,7 @@ const Index = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Item</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this item? This action cannot be undone.
+              Are you sure you want to delete this item? This action can be undone using the Undo button.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
