@@ -7,6 +7,7 @@ import { InventoryCard } from "@/components/InventoryCard";
 import { InventoryFilters } from "@/components/InventoryFilters";
 import { ItemDialog } from "@/components/ItemDialog";
 import { AuthDialog } from "@/components/AuthDialog";
+import { DebugPanel } from "@/components/DebugPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -127,11 +128,14 @@ const IndexEnhanced = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-primary">YCCC Nursing Inventory</h1>
+              <h1 className="text-2xl font-bold text-primary">YCCC Nursing Inventory (Enhanced)</h1>
               <p className="text-sm text-muted-foreground">York County Community College</p>
             </div>
             
             <div className="flex items-center gap-3">
+              {/* Debug Panel */}
+              <DebugPanel />
+
               {/* Undo/Redo Controls */}
               {isAuthenticated && (
                 <div className="flex items-center gap-2">
