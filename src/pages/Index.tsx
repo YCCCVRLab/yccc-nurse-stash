@@ -288,7 +288,7 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-primary">YCCC Nursing Inventory</h1>
-              <p className="text-sm text-muted-foreground">York County Community College - Enhanced with Debug Tools</p>
+              <p className="text-sm text-muted-foreground">York County Community College</p>
             </div>
             
             <div className="flex items-center gap-3">
