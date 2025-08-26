@@ -20,4 +20,9 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // This is crucial for fixing 'process is not defined' errors in browser environments.
+    // It tells Vite to replace any instance of 'process.env.NODE_ENV' with the actual mode.
+    'process.env.NODE_ENV': JSON.stringify(mode),
+  },
 }));
